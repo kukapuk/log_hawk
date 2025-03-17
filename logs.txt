@@ -1,0 +1,9 @@
+[14:12:55 INF] AuthenticationScheme: Identity.Application was challenged.
+[14:12:55 INF] HTTP GET / responded 302 in 0.8907 ms
+[14:12:55 INF] HTTP GET /account/login responded 200 in 5.0793 ms
+[14:13:01 INF] HTTP POST /account/login responded 200 in 5.9465 ms
+[14:13:16 INF] User:dasdsa Status:False Messages:UserNotFound ActionName:SignIn ClientIp:127.0.0.1
+[14:13:16 INF] HTTP POST /account/login responded 200 in 12.5083 ms
+[14:13:36 INF] HTTP POST /account/login responded 200 in 5.6907 ms
+[14:13:39 INF] User:errorUser Status:False Messages:UserNotFound ActionName:SignIn ClientIp:127.0.0.1
+[14:13:39 INF] HTTP POST /account/login responded 200 in 9.0877 ms
