@@ -1,6 +1,7 @@
 use eframe::egui;
 use regex::Regex;
 use rfd::FileDialog;
+use std::collections::HashMap;
 use std::fs;
 
 fn main() -> eframe::Result<()> {
@@ -16,8 +17,10 @@ fn main() -> eframe::Result<()> {
 struct LogHawkApp {
     logs: Vec<LogEntry>,
     selected_file: Option<String>,
+    suspicious_ips: Vec<String>,
+    stats: LogStats,
+    show_logs: bool,
 }
-
 
 impl eframe::App for LogHawkApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -29,6 +32,8 @@ impl eframe::App for LogHawkApp {
                     let path_str = path.display().to_string();
                     self.selected_file = Some(path_str.clone());
                     self.logs = read_logs(&path_str);
+                    self.stats = analyze_logs(&self.logs);
+                    self.suspicious_ips = detect_suspicious_ips(&self.logs);
                 }
             }
 
@@ -37,12 +42,35 @@ impl eframe::App for LogHawkApp {
             }
 
             ui.separator();
+            ui.heading("Статистика:");
+            ui.label(format!("Всего логов: {}", self.stats.total_logs));
+            ui.label(format!("Уникальных IP: {}", self.stats.unique_ips.len()));
+            ui.label(format!("Успешных входов: {}", self.stats.successful_logins));
+            ui.label(format!("Неудачных входов: {}", self.stats.failed_logins));
 
-            for log in &self.logs {
-                ui.label(format!(
-                    "[{}] {} | {} | {}",
-                    log.timestamp, log.message, log.status, log.ip
-                ));
+            ui.separator();
+            ui.heading("Подозрительные IP:");
+            for ip in &self.suspicious_ips {
+                ui.label(ip);
+            }
+
+            ui.separator();
+            let label = if self.show_logs { "▼ Скрыть логи" } else { "▶ Показать логи" };
+            if ui.button(label).clicked() {
+                self.show_logs = !self.show_logs;
+            }
+
+            if self.show_logs {
+                ui.separator();
+                ui.heading("Логи:");
+                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                    for log in &self.logs {
+                        ui.label(format!(
+                            "[{}] {} | {} | {}",
+                            log.timestamp, log.message, log.status, log.ip
+                        ));
+                    }
+                });
             }
         });
     }
@@ -56,6 +84,13 @@ struct LogEntry {
     ip: String,
 }
 
+#[derive(Default)]
+struct LogStats {
+    total_logs: usize,
+    successful_logins: usize,
+    failed_logins: usize,
+    unique_ips: HashMap<String, usize>,
+}
 
 fn read_logs(filename: &str) -> Vec<LogEntry> {
     let mut entries = Vec::new();
@@ -81,8 +116,42 @@ fn read_logs(filename: &str) -> Vec<LogEntry> {
             }
         }
     } else {
-        println!("error when read file!");
+        println!("Ошибка при чтении файла!");
     }
     entries
 }
 
+fn analyze_logs(logs: &[LogEntry]) -> LogStats {
+    let mut stats = LogStats::default();
+
+    for log in logs {
+        stats.total_logs += 1;
+        if log.status.contains("False") {
+            stats.failed_logins += 1;
+        } else if log.status.contains("True") {
+            stats.successful_logins += 1;
+        }
+
+        if log.ip != "N/A" {
+            *stats.unique_ips.entry(log.ip.clone()).or_insert(0) += 1;
+        }
+    }
+
+    stats
+}
+
+fn detect_suspicious_ips(logs: &[LogEntry]) -> Vec<String> {
+    let mut failed_attempts: HashMap<String, usize> = HashMap::new();
+
+    for log in logs {
+        if log.status.contains("False") {
+            *failed_attempts.entry(log.ip.clone()).or_insert(0) += 1;
+        }
+    }
+
+    failed_attempts
+        .into_iter()
+        .filter(|&(_, count)| count > 3)
+        .map(|(ip, _)| ip)
+        .collect()
+}
