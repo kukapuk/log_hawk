@@ -7,7 +7,7 @@ use std::fs;
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "log_hawk",
+        "LogHawk",
         options,
         Box::new(|_cc| Ok(Box::new(LogHawkApp::default()))),
     )
@@ -28,68 +28,66 @@ struct LogHawkApp {
 impl eframe::App for LogHawkApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("log_hawk");
+            ui.heading("📊 LogHawk - Анализ логов");
+            ui.separator();
 
-            if ui.button("Выбрать файл").clicked() {
-                if let Some(path) = FileDialog::new().add_filter("Text files", &["txt"]).pick_file() {
-                    let path_str = path.display().to_string();
-                    self.selected_file = Some(path_str.clone());
-                    self.logs = read_logs(&path_str);
-                    self.stats = analyze_logs(&self.logs);
-                    self.suspicious_ips = detect_suspicious_ips(&self.logs);
-                    self.apply_filter();
+            ui.horizontal(|ui| {
+                if ui.button("📂 Выбрать файл").clicked() {
+                    if let Some(path) = FileDialog::new().add_filter("Text files", &["txt"]).pick_file() {
+                        let path_str = path.display().to_string();
+                        self.selected_file = Some(path_str.clone());
+                        self.logs = read_logs(&path_str);
+                        self.stats = analyze_logs(&self.logs);
+                        self.suspicious_ips = detect_suspicious_ips(&self.logs);
+                        self.apply_filter();
+                    }
                 }
-            }
-
-            if let Some(ref file) = self.selected_file {
-                ui.label(format!("Выбран файл: {}", file));
-            }
+                if let Some(ref file) = self.selected_file {
+                    ui.label(format!("📁 Файл: {}", file));
+                }
+            });
+            
+            ui.separator();
+            ui.collapsing("📈 Статистика", |ui| {
+                ui.label(format!("Всего логов: {}", self.stats.total_logs));
+                ui.label(format!("Уникальных IP: {}", self.stats.unique_ips.len()));
+                ui.label(format!("✅ Успешные входы: {}", self.stats.successful_logins));
+                ui.label(format!("❌ Неудачные входы: {}", self.stats.failed_logins));
+            });
 
             ui.separator();
-            ui.heading("Статистика:");
-            ui.label(format!("Всего логов: {}", self.stats.total_logs));
-            ui.label(format!("Уникальных IP: {}", self.stats.unique_ips.len()));
-            ui.label(format!("Успешных входов: {}", self.stats.successful_logins));
-            ui.label(format!("Неудачных входов: {}", self.stats.failed_logins));
-
+            ui.collapsing("⚠️ Подозрительные IP", |ui| {
+                for ip in &self.suspicious_ips {
+                    ui.colored_label(egui::Color32::from_rgb(255, 69, 0), ip);
+                }
+            });
+            
             ui.separator();
-            ui.heading("Подозрительные IP:");
-            for ip in &self.suspicious_ips {
-                ui.colored_label(egui::Color32::from_rgb(255, 165, 0), ip);
-            }
-
-            ui.separator();
-            let label = if self.show_logs { "▼ Скрыть логи" } else { "▶ Показать логи" };
-            if ui.button(label).clicked() {
+            if ui.button(if self.show_logs { "▼ Скрыть логи" } else { "▶ Показать логи" }).clicked() {
                 self.show_logs = !self.show_logs;
             }
-
+            
             if self.show_logs {
                 ui.separator();
-                ui.heading("Фильтрация логов:");
+                ui.label("🔍 Фильтрация логов:");
                 ui.horizontal(|ui| {
-                    ui.label("Фильтр по IP:");
-                    if ui.text_edit_singleline(&mut self.filter_ip).changed() {
-                        self.apply_filter();
-                    }
+                    ui.label("🔹 IP:");
+                    ui.text_edit_singleline(&mut self.filter_ip);
+                    ui.label("🔹 Статус:");
+                    ui.text_edit_singleline(&mut self.filter_status);
                 });
-                ui.horizontal(|ui| {
-                    ui.label("Фильтр по статусу:");
-                    if ui.text_edit_singleline(&mut self.filter_status).changed() {
-                        self.apply_filter();
-                    }
-                });
+                if ui.button("🔎 Применить").clicked() {
+                    self.apply_filter();
+                }
                 
                 ui.separator();
-                ui.heading("Логи:");
+                ui.label("📜 Логи:");
                 egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                     for log in &self.filtered_logs {
-                        let color = if log.status.contains("False") {
-                            egui::Color32::RED
-                        } else if log.status.contains("True") {
-                            egui::Color32::GREEN
-                        } else {
-                            egui::Color32::GRAY
+                        let color = match log.status.as_str() {
+                            s if s.contains("False") => egui::Color32::RED,
+                            s if s.contains("True") => egui::Color32::GREEN,
+                            _ => egui::Color32::GRAY,
                         };
                         ui.colored_label(color, format!(
                             "[{}] {} | {} | {}",
