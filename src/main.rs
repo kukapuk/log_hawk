@@ -55,7 +55,7 @@ impl eframe::App for LogHawkApp {
             ui.separator();
             ui.heading("Подозрительные IP:");
             for ip in &self.suspicious_ips {
-                ui.label(ip);
+                ui.colored_label(egui::Color32::from_rgb(255, 165, 0), ip);
             }
 
             ui.separator();
@@ -84,7 +84,14 @@ impl eframe::App for LogHawkApp {
                 ui.heading("Логи:");
                 egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                     for log in &self.filtered_logs {
-                        ui.label(format!(
+                        let color = if log.status.contains("False") {
+                            egui::Color32::RED
+                        } else if log.status.contains("True") {
+                            egui::Color32::GREEN
+                        } else {
+                            egui::Color32::GRAY
+                        };
+                        ui.colored_label(color, format!(
                             "[{}] {} | {} | {}",
                             log.timestamp, log.message, log.status, log.ip
                         ));
@@ -126,18 +133,10 @@ impl LogHawkApp {
 fn read_logs(filename: &str) -> Vec<LogEntry> {
     let mut entries = Vec::new();
     if let Ok(contents) = fs::read_to_string(filename) {
-        let re_http = Regex::new(r"\[(\d{2}:\d{2}:\d{2}) INF\] (HTTP \w+ [^ ]+) responded (\d+)").unwrap();
         let re_auth = Regex::new(r"\[(\d{2}:\d{2}:\d{2}) INF\] User:(\w+) Status:(\w+) Messages:(.*?) ActionName:\w+ ClientIp:(\d+\.\d+\.\d+\.\d+)").unwrap();
 
         for line in contents.lines() {
-            if let Some(caps) = re_http.captures(line) {
-                entries.push(LogEntry {
-                    timestamp: caps[1].to_string(),
-                    status: caps[3].to_string(),
-                    message: caps[2].to_string(),
-                    ip: "N/A".to_string(),
-                });
-            } else if let Some(caps) = re_auth.captures(line) {
+            if let Some(caps) = re_auth.captures(line) {
                 entries.push(LogEntry {
                     timestamp: caps[1].to_string(),
                     status: format!("Status:{}", &caps[3]),
@@ -160,7 +159,6 @@ fn analyze_logs(logs: &[LogEntry]) -> LogStats {
         } else if log.status.contains("True") {
             stats.successful_logins += 1;
         }
-
         if log.ip != "N/A" {
             stats.unique_ips.insert(log.ip.clone());
         }
