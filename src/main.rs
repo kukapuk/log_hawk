@@ -1,7 +1,7 @@
 use eframe::egui;
 use regex::Regex;
 use rfd::FileDialog;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 
 fn main() -> eframe::Result<()> {
@@ -16,10 +16,13 @@ fn main() -> eframe::Result<()> {
 #[derive(Default)]
 struct LogHawkApp {
     logs: Vec<LogEntry>,
+    filtered_logs: Vec<LogEntry>,
     selected_file: Option<String>,
     suspicious_ips: Vec<String>,
     stats: LogStats,
     show_logs: bool,
+    filter_ip: String,
+    filter_status: String,
 }
 
 impl eframe::App for LogHawkApp {
@@ -34,6 +37,7 @@ impl eframe::App for LogHawkApp {
                     self.logs = read_logs(&path_str);
                     self.stats = analyze_logs(&self.logs);
                     self.suspicious_ips = detect_suspicious_ips(&self.logs);
+                    self.apply_filter();
                 }
             }
 
@@ -62,9 +66,24 @@ impl eframe::App for LogHawkApp {
 
             if self.show_logs {
                 ui.separator();
+                ui.heading("Фильтрация логов:");
+                ui.horizontal(|ui| {
+                    ui.label("Фильтр по IP:");
+                    if ui.text_edit_singleline(&mut self.filter_ip).changed() {
+                        self.apply_filter();
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Фильтр по статусу:");
+                    if ui.text_edit_singleline(&mut self.filter_status).changed() {
+                        self.apply_filter();
+                    }
+                });
+                
+                ui.separator();
                 ui.heading("Логи:");
                 egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                    for log in &self.logs {
+                    for log in &self.filtered_logs {
                         ui.label(format!(
                             "[{}] {} | {} | {}",
                             log.timestamp, log.message, log.status, log.ip
@@ -76,7 +95,7 @@ impl eframe::App for LogHawkApp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LogEntry {
     timestamp: String,
     status: String,
@@ -89,7 +108,19 @@ struct LogStats {
     total_logs: usize,
     successful_logins: usize,
     failed_logins: usize,
-    unique_ips: HashMap<String, usize>,
+    unique_ips: HashSet<String>,
+}
+
+impl LogHawkApp {
+    fn apply_filter(&mut self) {
+        self.filtered_logs = self.logs.iter()
+            .filter(|log| {
+                (self.filter_ip.is_empty() || log.ip.contains(&self.filter_ip)) &&
+                (self.filter_status.is_empty() || log.status.contains(&self.filter_status))
+            })
+            .cloned()
+            .collect();
+    }
 }
 
 fn read_logs(filename: &str) -> Vec<LogEntry> {
@@ -109,14 +140,12 @@ fn read_logs(filename: &str) -> Vec<LogEntry> {
             } else if let Some(caps) = re_auth.captures(line) {
                 entries.push(LogEntry {
                     timestamp: caps[1].to_string(),
-                    status: format!("Status:{}", &caps[3].to_string()),
-                    message: format!("User:{} - Messages:{}", &caps[2].to_string(), &caps[4].to_string()),
+                    status: format!("Status:{}", &caps[3]),
+                    message: format!("User:{} - Messages:{}", &caps[2], &caps[4]),
                     ip: caps[5].to_string(),
                 });
             }
         }
-    } else {
-        println!("Ошибка при чтении файла!");
     }
     entries
 }
@@ -133,7 +162,7 @@ fn analyze_logs(logs: &[LogEntry]) -> LogStats {
         }
 
         if log.ip != "N/A" {
-            *stats.unique_ips.entry(log.ip.clone()).or_insert(0) += 1;
+            stats.unique_ips.insert(log.ip.clone());
         }
     }
 
