@@ -1,8 +1,8 @@
 use eframe::egui;
-use regex::Regex;
 use rfd::FileDialog;
-use std::collections::{HashMap, HashSet};
-use std::fs;
+mod log_analyzer;
+use log_analyzer::*;
+
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
@@ -56,7 +56,7 @@ impl eframe::App for LogHawkApp {
             });
 
             ui.separator();
-            ui.collapsing("⚠️ Подозрительные IP", |ui| {
+            ui.collapsing("🔍 Подозрительные IP", |ui| {
                 for ip in &self.suspicious_ips {
                     ui.colored_label(egui::Color32::from_rgb(255, 69, 0), ip);
                 }
@@ -72,13 +72,14 @@ impl eframe::App for LogHawkApp {
                 ui.label("🔍 Фильтрация логов:");
                 ui.horizontal(|ui| {
                     ui.label("🔹 IP:");
-                    ui.text_edit_singleline(&mut self.filter_ip);
+                    if ui.text_edit_singleline(&mut self.filter_ip).changed() {
+                        self.apply_filter();
+                    };
                     ui.label("🔹 Статус:");
-                    ui.text_edit_singleline(&mut self.filter_status);
+                    if ui.text_edit_singleline(&mut self.filter_status).changed() {
+                        self.apply_filter();
+                    };
                 });
-                if ui.button("🔎 Применить").clicked() {
-                    self.apply_filter();
-                }
                 
                 ui.separator();
                 ui.label("📜 Логи:");
@@ -100,22 +101,6 @@ impl eframe::App for LogHawkApp {
     }
 }
 
-#[derive(Debug, Clone)]
-struct LogEntry {
-    timestamp: String,
-    status: String,
-    message: String,
-    ip: String,
-}
-
-#[derive(Default)]
-struct LogStats {
-    total_logs: usize,
-    successful_logins: usize,
-    failed_logins: usize,
-    unique_ips: HashSet<String>,
-}
-
 impl LogHawkApp {
     fn apply_filter(&mut self) {
         self.filtered_logs = self.logs.iter()
@@ -126,57 +111,4 @@ impl LogHawkApp {
             .cloned()
             .collect();
     }
-}
-
-fn read_logs(filename: &str) -> Vec<LogEntry> {
-    let mut entries = Vec::new();
-    if let Ok(contents) = fs::read_to_string(filename) {
-        let re_auth = Regex::new(r"\[(\d{2}:\d{2}:\d{2}) INF\] User:(\w+) Status:(\w+) Messages:(.*?) ActionName:\w+ ClientIp:(\d+\.\d+\.\d+\.\d+)").unwrap();
-
-        for line in contents.lines() {
-            if let Some(caps) = re_auth.captures(line) {
-                entries.push(LogEntry {
-                    timestamp: caps[1].to_string(),
-                    status: format!("Status:{}", &caps[3]),
-                    message: format!("User:{} - Messages:{}", &caps[2], &caps[4]),
-                    ip: caps[5].to_string(),
-                });
-            }
-        }
-    }
-    entries
-}
-
-fn analyze_logs(logs: &[LogEntry]) -> LogStats {
-    let mut stats = LogStats::default();
-
-    for log in logs {
-        stats.total_logs += 1;
-        if log.status.contains("False") {
-            stats.failed_logins += 1;
-        } else if log.status.contains("True") {
-            stats.successful_logins += 1;
-        }
-        if log.ip != "N/A" {
-            stats.unique_ips.insert(log.ip.clone());
-        }
-    }
-
-    stats
-}
-
-fn detect_suspicious_ips(logs: &[LogEntry]) -> Vec<String> {
-    let mut failed_attempts: HashMap<String, usize> = HashMap::new();
-
-    for log in logs {
-        if log.status.contains("False") {
-            *failed_attempts.entry(log.ip.clone()).or_insert(0) += 1;
-        }
-    }
-
-    failed_attempts
-        .into_iter()
-        .filter(|&(_, count)| count > 3)
-        .map(|(ip, _)| ip)
-        .collect()
 }
