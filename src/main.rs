@@ -106,7 +106,7 @@ impl LogHawkApp {
         self.filtered_logs = self.logs.iter()
             .filter(|log| {
                 (self.filter_ip.is_empty() || log.ip.contains(&self.filter_ip)) &&
-                (self.filter_status.is_empty() || log.status.contains(&self.filter_status))
+                (self.filter_status.is_empty() || log.status.to_lowercase().contains(&self.filter_status.to_lowercase()))
             })
             .cloned()
             .collect();
