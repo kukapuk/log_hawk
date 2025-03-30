@@ -1,6 +1,8 @@
 use rfd::FileDialog;
 use crate::log_analyzer::*;
 use crate::tab::*;
+use egui_plot::*;
+use egui::Color32;
 
 
 #[derive(Default)]
@@ -92,4 +94,57 @@ impl LogHawkApp {
             .cloned()
             .collect();
     }
+
+    pub fn show_graphs_tab(&self, ui: &mut egui::Ui) {
+        ui.heading("📊 Графики");
+        ui.separator();
+    
+        egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+            ui.vertical(|ui| {
+                ui.label("✅ Успешные vs ❌ Неудачные входы");
+                Plot::new("login_attempts").view_aspect(2.0).show(ui, |plot_ui| {
+                    let values = vec![
+                        Bar::new(0.0, self.stats.successful_logins as f64).fill(egui::Color32::GREEN),
+                        Bar::new(1.0, self.stats.failed_logins as f64).fill(egui::Color32::RED),
+                    ];
+                    plot_ui.bar_chart(BarChart::new(values));
+                });
+            });
+            ui.separator();
+    
+            ui.vertical(|ui| {
+                ui.label("📊 Активность IP-адресов");
+                let mut ip_counts = std::collections::HashMap::new();
+                for log in &self.logs {
+                    *ip_counts.entry(log.ip.clone()).or_insert(0) += 1;
+                }
+                let mut bars: Vec<Bar> = ip_counts.iter().enumerate().map(|(i, (ip, count))| {
+                    Bar::new(i as f64, *count as f64).fill(egui::Color32::BLUE)
+                }).collect();
+                if bars.len() > 10 {
+                    bars.truncate(10);
+                }
+                
+                Plot::new("ip_activity").view_aspect(2.0).show(ui, |plot_ui| {
+                    plot_ui.bar_chart(BarChart::new(bars));
+                });
+            });
+            ui.separator();
+    
+            ui.vertical(|ui| {
+                ui.label("🔍 Подозрительные IP-адреса");
+                let suspicious_counts: Vec<Bar> = self.suspicious_ips.iter().enumerate().map(|(i, ip)| {
+                    Bar::new(i as f64, 1.0).fill(egui::Color32::DARK_RED)
+                }).collect();
+                
+                if !suspicious_counts.is_empty() {
+                    Plot::new("suspicious_ips").view_aspect(2.0).show(ui, |plot_ui| {
+                        plot_ui.bar_chart(BarChart::new(suspicious_counts));
+                    });
+                } else {
+                    ui.label("Нет подозрительных IP");
+                }
+            });
+        });
+    }    
 }

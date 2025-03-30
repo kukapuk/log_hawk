@@ -29,6 +29,9 @@ impl eframe::App for LogHawkApp {
             if ui.selectable_label(self.current_tab == Tab::SuspiciousIPs, "🔍 Подозрительные IP").clicked() {
                 self.current_tab = Tab::SuspiciousIPs;
             }
+            if ui.selectable_label(self.current_tab == Tab::Graphics, "📊 Графики").clicked() {
+                self.current_tab = Tab::Graphics;
+            }
             if ui.selectable_label(self.current_tab == Tab::Settings, "⚙ Настройки").clicked() {
                 self.current_tab = Tab::Settings;
             }
@@ -41,6 +44,9 @@ impl eframe::App for LogHawkApp {
                 Tab::SuspiciousIPs => self.show_suspicious_ips_tab(ui),
                 Tab::Settings => {
                     ui.label("⚙ Settings here");
+                },
+                Tab::Graphics => {
+                    self.show_graphs_tab(ui);
                 },
             }
         });

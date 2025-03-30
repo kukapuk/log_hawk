@@ -6,4 +6,5 @@ pub enum Tab {
     Statistics,
     SuspiciousIPs,
     Settings,
+    Graphics,
 }
