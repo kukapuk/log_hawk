@@ -7,4 +7,5 @@ pub enum Tab {
     SuspiciousIPs,
     Settings,
     Graphics,
+    IpChart,
 }

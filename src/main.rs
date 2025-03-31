@@ -32,6 +32,9 @@ impl eframe::App for LogHawkApp {
             if ui.selectable_label(self.current_tab == Tab::Graphics, "📊 Графики").clicked() {
                 self.current_tab = Tab::Graphics;
             }
+            if ui.selectable_label(self.current_tab == Tab::IpChart, "📊 Часто встречаемые IP").clicked() {
+                self.current_tab = Tab::IpChart;
+            }
             if ui.selectable_label(self.current_tab == Tab::Settings, "⚙ Настройки").clicked() {
                 self.current_tab = Tab::Settings;
             }
@@ -47,6 +50,9 @@ impl eframe::App for LogHawkApp {
                 },
                 Tab::Graphics => {
                     self.show_graphs_tab(ui);
+                },
+                Tab::IpChart => {
+                    self.show_ip_pie_chart(ui);
                 },
             }
         });

@@ -1,3 +1,5 @@
+use egui::Color32;
+use egui::Stroke;
 use rfd::FileDialog;
 use crate::log_analyzer::*;
 use crate::tab::*;
@@ -205,5 +207,91 @@ impl LogHawkApp {
                     });
             });            
         });
-    }    
+    }
+
+    pub fn show_ip_pie_chart(&self, ui: &mut egui::Ui) {
+        use std::f64::consts::PI;
+    
+        ui.label("🌍 Распределение логов по IP-адресам");
+    
+        let mut ip_counts = BTreeMap::new();
+        for log in &self.logs {
+            *ip_counts.entry(log.ip.clone()).or_insert(0) += 1;
+        }
+    
+        if ip_counts.is_empty() {
+            ui.label("Нет данных для отображения.");
+            return;
+        }
+    
+        let total_logs: i32 = ip_counts.values().sum();
+
+        let colors = [
+            Color32::from_rgb(255, 99, 132),
+            Color32::from_rgb(54, 162, 235),
+            Color32::from_rgb(255, 206, 86),
+            Color32::from_rgb(75, 192, 192),
+            Color32::from_rgb(153, 102, 255),
+            Color32::from_rgb(255, 159, 64),
+        ];
+
+        let center = [0.0, 0.0];
+        let radius = 1.0;
+        let mut start_angle = 0.0;
+        let mut color_index = 0;
+        let legend: Vec<(String, Color32)> = vec![];
+
+        Plot::new("ip_pie_chart")
+            .view_aspect(1.0)
+            .legend(Legend::default().position(Corner::LeftTop))
+            .show(ui, |plot_ui| {
+                for (ip, count) in ip_counts {
+                    let fraction = count as f64 / total_logs as f64;
+                    let sweep_angle = fraction * 2.0 * PI;
+                    let end_angle = start_angle + sweep_angle;
+
+                    let color = colors[color_index % colors.len()];
+                    color_index += 1;
+
+                    let mut points = vec![center];
+                    for i in 0..=30 {
+                        let angle = start_angle + (i as f64 / 30.0) * sweep_angle;
+                        points.push([
+                            center[0] + radius * angle.cos(),
+                            center[1] + radius * angle.sin(),
+                        ]);
+                    }
+                    points.push(center);
+
+                    plot_ui.polygon(
+                        Polygon::new(PlotPoints::from(points))
+                            .stroke(Stroke::new(10.0, color)),
+                    );
+
+                    let label_angle = start_angle + sweep_angle / 2.0;
+                    let label_pos = PlotPoint::new(
+                        center[0] + 1.3 * radius * label_angle.cos(),
+                        center[1] + 1.3 * radius * label_angle.sin(),
+                    );
+
+                    let percentage = (fraction * 100.0) as u8;
+                    plot_ui.text(Text::new(
+                        label_pos,
+                        format!("{}% ({})", percentage, ip),
+                    )
+                    .color(Color32::WHITE));
+
+                    start_angle = end_angle;
+                }
+            });
+            
+        ui.separator();
+        for (ip, color) in legend {
+            ui.horizontal(|ui| {
+                let rect = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(10.0, 10.0));
+                ui.painter().rect_filled(rect, 0.0, color);
+                ui.label(ip);
+            });
+        }
+    }
 }
