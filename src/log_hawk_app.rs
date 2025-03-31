@@ -133,29 +133,50 @@ impl LogHawkApp {
 
             ui.vertical(|ui| {
                 ui.label("⏳ Активность логов по времени");
-            
-                let mut time_counts = BTreeMap::new();
+    
+                let mut total_counts: BTreeMap<String, i32> = BTreeMap::new();
+                let mut success_counts: BTreeMap<String, i32> = BTreeMap::new();
+                let mut failed_counts: BTreeMap<String, i32> = BTreeMap::new();
+    
                 for log in &self.logs {
-                    *time_counts.entry(log.timestamp.clone()).or_insert(0) += 1;
+                    *total_counts.entry(log.timestamp.clone()).or_insert(0) += 1;
+    
+                    if log.status.contains("True") {
+                        *success_counts.entry(log.timestamp.clone()).or_insert(0) += 1;
+                    } else if log.status.contains("False") {
+                        *failed_counts.entry(log.timestamp.clone()).or_insert(0) += 1;
+                    }
                 }
-
-                let line_points: Vec<[f64; 2]> = time_counts
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (_, count))| {
-                        let x = i as f64;
-                        [x, *count as f64]
-                    })
-                    .collect();
-            
-                let time_labels: Vec<_> = time_counts.keys().cloned().collect();
-            
+    
+                let time_labels: Vec<_> = total_counts.keys().cloned().collect();
+    
+                let make_line_points = |counts: &BTreeMap<String, i32>| -> Vec<[f64; 2]> {
+                    counts.iter()
+                        .enumerate()
+                        .map(|(i, (_, count))| [i as f64, *count as f64])
+                        .collect()
+                };
+    
+                let total_points = make_line_points(&total_counts);
+                let success_points = make_line_points(&success_counts);
+                let failed_points = make_line_points(&failed_counts);
+    
                 Plot::new("log_activity")
                     .view_aspect(2.0)
                     .legend(Legend::default())
                     .show(ui, |plot_ui| {
-                        plot_ui.line(Line::new(PlotPoints::from(line_points.clone())).name("Лог активности"));
-            
+                        plot_ui.line(Line::new(PlotPoints::from(total_points.clone()))
+                            .name("Общая активность")
+                            .color(egui::Color32::WHITE));
+    
+                        plot_ui.line(Line::new(PlotPoints::from(success_points.clone()))
+                            .name("Успешные входы")
+                            .color(egui::Color32::GREEN));
+    
+                        plot_ui.line(Line::new(PlotPoints::from(failed_points.clone()))
+                            .name("Неудачные входы")
+                            .color(egui::Color32::RED));
+    
                         for (i, label) in time_labels.iter().enumerate() {
                             plot_ui.text(Text::new([i as f64, 0.0].into(), label.clone()));
                         }
