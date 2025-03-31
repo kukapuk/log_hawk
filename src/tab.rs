@@ -8,4 +8,5 @@ pub enum Tab {
     Settings,
     Graphics,
     IpChart,
+    IndividualAttemptsGraph,
 }

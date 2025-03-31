@@ -35,6 +35,9 @@ impl eframe::App for LogHawkApp {
             if ui.selectable_label(self.current_tab == Tab::IpChart, "📊 Часто встречаемые IP").clicked() {
                 self.current_tab = Tab::IpChart;
             }
+            if ui.selectable_label(self.current_tab == Tab::IndividualAttemptsGraph, "📊 Индивидуальные попытки IP").clicked() {
+                self.current_tab = Tab::IndividualAttemptsGraph;
+            }
             if ui.selectable_label(self.current_tab == Tab::Settings, "⚙ Настройки").clicked() {
                 self.current_tab = Tab::Settings;
             }
@@ -53,6 +56,9 @@ impl eframe::App for LogHawkApp {
                 },
                 Tab::IpChart => {
                     self.show_ip_pie_chart(ui);
+                },
+                Tab::IndividualAttemptsGraph => {
+                    self.show_individual_attempts_graph(ui);
                 },
             }
         });

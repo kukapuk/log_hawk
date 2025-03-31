@@ -191,10 +191,7 @@ impl LogHawkApp {
             
                 let other_errors = self.stats.total_logs - self.stats.successful_logins - self.stats.failed_logins;
             
-                let error_types = vec![
-                    ("Auth Fail", self.stats.failed_logins),
-                    ("Other Errors", other_errors),
-                ];
+                let error_types = [("Auth Fail", self.stats.failed_logins), ("Other Errors", other_errors)];
             
                 let bars: Vec<Bar> = error_types.iter().enumerate().map(|(i, (label, count))| {
                     Bar::new(i as f64, *count as f64).name(label).fill(egui::Color32::RED)
@@ -284,7 +281,7 @@ impl LogHawkApp {
                     start_angle = end_angle;
                 }
             });
-            
+
         ui.separator();
         for (ip, color) in legend {
             ui.horizontal(|ui| {
@@ -293,5 +290,30 @@ impl LogHawkApp {
                 ui.label(ip);
             });
         }
+    }
+
+    pub fn show_individual_attempts_graph(&self, ui: &mut egui::Ui) {
+        let ip_attempts: Vec<(String, usize, usize)> = vec![
+            ("192.168.1.1".to_string(), 10, 5),
+            ("192.168.1.2".to_string(), 8, 3),
+            ("10.0.0.1".to_string(), 6, 7),
+        ];
+
+        Plot::new("ip_attempts_chart")
+            .view_aspect(2.0)
+            .legend(egui_plot::Legend::default().position(Corner::LeftTop))
+            .show(ui, |plot_ui| {
+                let mut bars_success = vec![];
+                let mut bars_failed = vec![];
+
+                for (i, (_, success, failed)) in ip_attempts.iter().enumerate() {
+                    let x = i as f64;
+                    bars_success.push(Bar::new(x, *success as f64).fill(Color32::BLUE));
+                    bars_failed.push(Bar::new(x, *failed as f64).fill(Color32::RED));
+                }
+
+                plot_ui.bar_chart(BarChart::new(bars_success).name("Успешные попытки"));
+                plot_ui.bar_chart(BarChart::new(bars_failed).name("Неудачные попытки"));
+            });
     }
 }
