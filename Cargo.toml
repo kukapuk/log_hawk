@@ -12,3 +12,4 @@ serde = { version = "1", features = ["derive"] }
 rfd = "0.15.3"
 regex = "1"
 egui_plot = "0.31.0"
+rand = "0.9.0"
