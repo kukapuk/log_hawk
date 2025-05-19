@@ -17,6 +17,7 @@ pub struct LogHawkApp {
     pub filter_status: String,
     pub current_tab: Tab,
     pub selected_ip: Option<String>,
+    pub risk_scores: Vec<(String, f64)>,
 }
 
 impl LogHawkApp {
@@ -32,6 +33,7 @@ impl LogHawkApp {
                     self.logs = read_logs(&path_str);
                     self.stats = analyze_logs(&self.logs);
                     self.suspicious_ips = detect_suspicious_ips(&self.logs);
+                    self.risk_scores = calculate_risk_scores(&self.logs);
                     self.apply_filter();
                 }
             }
@@ -354,6 +356,32 @@ impl LogHawkApp {
 
                 plot_ui.bar_chart(BarChart::new(bars_success).name("Успешные попытки"));
                 plot_ui.bar_chart(BarChart::new(bars_failed).name("Неудачные попытки"));
+            });
+    }
+
+    pub fn show_risk_analysis_tab(&self, ui: &mut egui::Ui) {
+        ui.heading("💻 Анализ рисков IP");
+        ui.separator();
+
+        if self.risk_scores.is_empty() {
+            ui.label("Нет данных для анализа.");
+            return;
+        }
+
+        ui.label("Риск от 0 (зелёный) до 1 (красный):");
+
+        let bars: Vec<egui_plot::Bar> = self.risk_scores.iter().enumerate().map(|(i, (ip, risk))| {
+            let color = risk_to_color(*risk);
+            egui_plot::Bar::new(i as f64, *risk)
+                .name(format!("{} ({:.2})", ip, risk))
+                .fill(color)
+        }).collect();
+
+        egui_plot::Plot::new("risk_chart")
+            .view_aspect(2.0)
+            .legend(egui_plot::Legend::default().position(egui_plot::Corner::LeftTop))
+            .show(ui, |plot_ui| {
+                plot_ui.bar_chart(egui_plot::BarChart::new(bars));
             });
     }
 }
