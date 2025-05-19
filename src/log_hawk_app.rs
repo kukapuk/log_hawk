@@ -16,6 +16,7 @@ pub struct LogHawkApp {
     pub filter_ip: String,
     pub filter_status: String,
     pub current_tab: Tab,
+    pub selected_ip: Option<String>,
 }
 
 impl LogHawkApp {
@@ -92,11 +93,50 @@ impl LogHawkApp {
         });
     }
     
-    pub fn show_suspicious_ips_tab(&self, ui: &mut egui::Ui) {
+    pub fn show_suspicious_ips_tab(&mut self, ui: &mut egui::Ui) {
         ui.heading("🔍 Подозрительные IP");
         ui.separator();
+        
         for ip in &self.suspicious_ips {
-            ui.colored_label(egui::Color32::from_rgb(255, 69, 0), ip);
+            if ui.button(ip).clicked() {
+                self.selected_ip = Some(ip.clone());
+            }
+        }
+
+        if let Some(ip) = &self.selected_ip {
+            let mut close_requested = false;
+
+            egui::Window::new(format!("📊 Аналитика по IP: {}", ip))
+                .show(ui.ctx(), |ui| {
+                    let ip_logs: Vec<_> = self.logs.iter().filter(|log| log.ip == *ip).collect();
+                    let success = ip_logs.iter().filter(|log| log.status.contains("True")).count();
+                    let failed = ip_logs.iter().filter(|log| log.status.contains("False")).count();
+
+                    ui.label(format!("✅ Успешных попыток: {}", success));
+                    ui.label(format!("❌ Неудачных попыток: {}", failed));
+                    ui.label(format!("📊 Всего записей: {}", ip_logs.len()));
+
+                    if ui.button("📋 Копировать IP").clicked() {
+                        ui.ctx().copy_text(ip.clone());
+                    }
+
+                    ui.separator();
+                    ui.label("🕒 Хронология событий:");
+                    egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+                        for log in ip_logs {
+                            ui.label(format!("[{}] {} - {}", log.timestamp, log.status, log.message));
+                        }
+                    });
+
+                    ui.separator();
+                    if ui.button("❌ Закрыть").clicked() {
+                        close_requested = true; // <- ставим флаг
+                    }
+                });
+
+            if close_requested {
+                self.selected_ip = None;
+            }
         }
     }
     
