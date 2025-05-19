@@ -384,4 +384,63 @@ impl LogHawkApp {
                 plot_ui.bar_chart(egui_plot::BarChart::new(bars));
             });
     }
+
+    pub fn show_overview_tab(&self, ui: &mut egui::Ui) {
+        use egui_plot::{Plot, PlotPoints, Line};
+
+        ui.heading("📋 Общий обзор логов");
+        ui.separator();
+        
+        ui.label(format!("🗂 Всего логов: {}", self.stats.total_logs));
+        ui.label(format!("🌐 Уникальных IP: {}", self.stats.unique_ips.len()));
+        ui.label(format!("✅ Успешных входов: {}", self.stats.successful_logins));
+        ui.label(format!("❌ Неудачных входов: {}", self.stats.failed_logins));
+
+        let fail_ratio = if self.stats.total_logs > 0 {
+            self.stats.failed_logins as f64 / self.stats.total_logs as f64
+        } else {
+            0.0
+        };
+        ui.label(format!("📉 Доля неудачных попыток: {:.1}%", fail_ratio * 100.0));
+
+        ui.separator();
+        
+        use std::collections::HashMap;
+
+        let mut ip_counts: HashMap<String, usize> = HashMap::new();
+        for log in &self.logs {
+            *ip_counts.entry(log.ip.clone()).or_insert(0) += 1;
+        }
+
+        let mut top_ips: Vec<_> = ip_counts.into_iter().collect();
+        top_ips.sort_by(|a, b| b.1.cmp(&a.1));
+        let top_ips = &top_ips[..top_ips.len().min(5)];
+
+        ui.label("📊 Топ-5 IP по активности:");
+        for (ip, count) in top_ips {
+            ui.label(format!("{} — {} записей", ip, count));
+        }
+        
+        ui.separator();
+        
+        use std::collections::BTreeMap;
+        let mut counts_by_time: BTreeMap<String, usize> = BTreeMap::new();
+
+        for log in &self.logs {
+            *counts_by_time.entry(log.timestamp.clone()).or_insert(0) += 1;
+        }
+
+        let points: PlotPoints = counts_by_time
+            .iter()
+            .enumerate()
+            .map(|(i, (_, count))| [i as f64, *count as f64])
+            .collect();
+
+        Plot::new("overview_activity")
+            .view_aspect(2.0)
+            .legend(egui_plot::Legend::default())
+            .show(ui, |plot_ui| {
+                plot_ui.line(Line::new(points).name("Активность логов").color(egui::Color32::LIGHT_BLUE));
+            });
+    }
 }

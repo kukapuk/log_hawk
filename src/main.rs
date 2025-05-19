@@ -23,6 +23,9 @@ impl eframe::App for LogHawkApp {
             if ui.selectable_label(self.current_tab == Tab::Logs, "📜 Логи").clicked() {
                 self.current_tab = Tab::Logs;
             }
+            if ui.selectable_label(self.current_tab == Tab::Overview, "📋 Обзор").clicked() {
+                self.current_tab = Tab::Overview;
+            }
             if ui.selectable_label(self.current_tab == Tab::Statistics, "📈 Статистика").clicked() {
                 self.current_tab = Tab::Statistics;
             }
@@ -49,6 +52,7 @@ impl eframe::App for LogHawkApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.current_tab {
                 Tab::Logs => self.show_logs_tab(ui),
+                Tab::Overview => self.show_overview_tab(ui),
                 Tab::Statistics => self.show_statistics_tab(ui),
                 Tab::SuspiciousIPs => self.show_suspicious_ips_tab(ui),
                 Tab::Settings => {

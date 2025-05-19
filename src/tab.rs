@@ -10,4 +10,5 @@ pub enum Tab {
     IpChart,
     IndividualAttemptsGraph,
     RiskAnalysis,
+    Overview,
 }
