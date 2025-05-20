@@ -18,6 +18,15 @@ impl eframe::App for LogHawkApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("📊 LogHawk");
+
+            if ui.button("🌙 Переключить тему").clicked() {
+                let visuals = if ctx.style().visuals.dark_mode {
+                    egui::Visuals::light()
+                } else {
+                    egui::Visuals::dark()
+                };
+                ctx.set_visuals(visuals);
+            }
             ui.separator();
             
             if ui.selectable_label(self.current_tab == Tab::Logs, "📜 Логи").clicked() {
